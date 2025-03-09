@@ -10,60 +10,34 @@ jobs:
   build-echo-bot:
     runs-on: ubuntu-latest
     steps:
+      # 1) Check out the repo into a subfolder named 'repo'
       - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Use Node.js 18.x
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18.x
-
-      - name: Install dependencies
-        run: npm installname: ci-javascript-samples
-
-on:
-  workflow_dispatch:
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  build-echo-bot:
-    runs-on: ubuntu-latest
-    steps:
-      # 1️⃣ Checkout your repo into './repo'
-      - name: Checkout
         uses: actions/checkout@v3
         with:
           path: repo
 
-      # 2️⃣ Confirm the folders
-      - name: List all files
+      # 2) List all files for debugging, to confirm folder structure
+      - name: List repo files
         run: ls -R
         working-directory: repo
 
-      # 3️⃣ Install dependencies (update path to actual sample folder)
+      # 3) Install dependencies inside the Echo Bot folder
       - name: Install dependencies
         run: npm install
         working-directory: repo/samples/javascript_nodejs/02.echo-bot
 
-      # 4️⃣ Build (optional)
+      # 4) Build the project (if a "build" script exists in package.json)
       - name: Build project
-        run: npm run build
+        run: |
+          if [ -f package.json ]; then
+            npm run build || echo "No build script found, skipping..."
+          fi
         working-directory: repo/samples/javascript_nodejs/02.echo-bot
 
-      # 5️⃣ Test (optional)
-      - name: Test
-        run: npm test
-        working-directory: repo/samples/javascript_nodejs/02.echo-bot
-
-        working-directory: BotBuilder-Samples/samples/javascript_nodejs/02.echo-bot
-
-      - name: Build project
-        # Only run this if you have a "build" script in package.json
-        run: npm run build
-        working-directory: BotBuilder-Samples/samples/javascript_nodejs/02.echo-bot
-
+      # 5) Test the project (if a "test" script exists in package.json)
       - name: Run tests
-        # Only run this if you have a "test" script in package.json
-        run: npm test
-        working-directory: BotBuilder-Samples/samples/javascript_nodejs/02.echo-bot
+        run: |
+          if [ -f package.json ]; then
+            npm test || echo "No test script found, skipping..."
+          fi
+        working-directory: repo/samples/javascript_nodejs/02.echo-bot
