@@ -1,7 +1,7 @@
 name: ci-javascript-samples
 
 env:
-  ROOT_FOLDER: BotBuilder-Samples/samples/javascript_nodejs/02.echo-bot
+  ROOT_FOLDER: samples/javascript_nodejs/02.echo-bot
 
 on:
   workflow_dispatch:
@@ -9,95 +9,36 @@ on:
     branches:
       - main
     paths:
-      - "samples/**/*.js"
-      - "samples/**/*.ts"
+      - "samples/javascript_nodejs/02.echo-bot/**"
 
 jobs:
-  generate:
-    name: detect and generate bot matrix
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: git diff
-        uses: technote-space/get-diff-action@v4
-        with:
-          PATTERNS: samples/**/*.+(ts|js)
-          ABSOLUTE: true
-
-      - name: generate matrix
-        id: set-matrix
-        shell: pwsh
-        if: env.GIT_DIFF
-        run: |
-          function UpSearchFolder {
-            param ([String] $path, [String] $file)
-
-            while ($path -and !(Test-Path (Join-Path $path $file))) {
-              $path = Split-Path $path -Parent
-            }
-
-            return $path
-          }
-
-          $paths = @("${{ env.GIT_DIFF_FILTERED }}" -replace "'", "" -split " ")
-          $rootFolder = "${{ env.ROOT_FOLDER }}"
-          $pkg = "package.json"
-
-          $result = $paths | ForEach-Object { UpSearchFolder -path $_ -file $pkg } | Get-Unique | ForEach-Object {
-            $folder = $_
-            $json = Get-Content -Raw -Path (Join-Path $folder $pkg) | ConvertFrom-Json
-            $files = @($paths | Where-Object { $_.StartsWith($folder) })
-            return @{ 
-              name = $folder.Substring($folder.IndexOf($rootFolder) + $rootFolder.Length);
-              scripts = @($json.scripts | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name);
-              folder = $folder;
-              files = $files
-            } 
-          }
-
-          "Generated matrix:"
-          ConvertTo-Json @($result)
-
-          $matrix = ConvertTo-Json -Compress @($result)
-
-          echo "::set-output name=matrix::$($matrix)"
-
   build:
-    needs: generate
     runs-on: ubuntu-latest
-    strategy:
-      matrix: 
-        include: ${{fromJSON(needs.generate.outputs.matrix)}}
-      fail-fast: false
-
-    name: bot - ${{ matrix.name }}
+    name: Build Echo Bot
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: use node 18.x
+      - name: Use Node.js 18.x
         uses: actions/setup-node@v3
         with:
           node-version: 18.x
+          working-directory: ${{ env.ROOT_FOLDER }}
 
       - name: Install dependencies
         run: npm install
-        working-directory: ${{ matrix.folder }}
+        working-directory: ${{ env.ROOT_FOLDER }}
 
-      - name: Build project
-        if: ${{ contains(matrix.scripts, 'build') }}
+      - name: Build project (if applicable)
         run: npm run build
-        working-directory: ${{ matrix.folder }}
+        if: "[ -f package.json ] && jq -e .scripts.build package.json > /dev/null"
+        working-directory: ${{ env.ROOT_FOLDER }}
 
-      - name: Run linter
-        run: |
-          npx eslint ${{ join(matrix.files, ' ') }}
-        working-directory: ${{ matrix.folder }}
+      - name: Run ESLint
+        run: npx eslint .
+        working-directory: ${{ env.ROOT_FOLDER }}
 
-      - name: Run tests (if available)
-        if: ${{ contains(matrix.scripts, 'test') }}
+      - name: Run tests (if applicable)
         run: npm test
-        working-directory: ${{ matrix.folder }}
+        if: "[ -f package.json ] && jq -e .scripts.test package.json > /dev/null"
+        working-directory: ${{ env.ROOT_FOLDER }}
