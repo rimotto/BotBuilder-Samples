@@ -1,4 +1,4 @@
-name: ci-javascript-samples
+﻿name: ci-javascript-samples
 
 on:
   workflow_dispatch:
@@ -19,7 +19,43 @@ jobs:
           node-version: 18.x
 
       - name: Install dependencies
+        run: npm installname: ci-javascript-samples
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-echo-bot:
+    runs-on: ubuntu-latest
+    steps:
+      # 1️⃣ Checkout your repo into './repo'
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: repo
+
+      # 2️⃣ Confirm the folders
+      - name: List all files
+        run: ls -R
+        working-directory: repo
+
+      # 3️⃣ Install dependencies (update path to actual sample folder)
+      - name: Install dependencies
         run: npm install
+        working-directory: repo/samples/javascript_nodejs/02.echo-bot
+
+      # 4️⃣ Build (optional)
+      - name: Build project
+        run: npm run build
+        working-directory: repo/samples/javascript_nodejs/02.echo-bot
+
+      # 5️⃣ Test (optional)
+      - name: Test
+        run: npm test
+        working-directory: repo/samples/javascript_nodejs/02.echo-bot
+
         working-directory: BotBuilder-Samples/samples/javascript_nodejs/02.echo-bot
 
       - name: Build project
