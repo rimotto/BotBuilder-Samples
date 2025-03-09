@@ -31,25 +31,34 @@ jobs:
       - name: generate matrix
         id: set-matrix
         run: |
-          MATRIX_JSON="[]"
-          
-          # Check if there are any differences
-          if [[ -n "${{ env.GIT_DIFF_FILTERED }}" ]]; then
-            MATRIX_JSON=$(echo "${{ env.GIT_DIFF_FILTERED }}" | jq -R -s 'split("\n") | map(select(length > 0)) | map({ name: ., folder: . })')
+          # If your GIT_DIFF_FILTERED is empty, produce an empty matrix '[]'
+          if [ -z "${{ env.GIT_DIFF_FILTERED }}" ]; then
+            echo "::set-output name=matrix::[]"
+            exit 0
           fi
           
-          echo "Generated Matrix: $MATRIX_JSON"
-          echo "matrix=$MATRIX_JSON" >> $GITHUB_ENV
+          # Otherwise, do something more advanced to produce a real matrix.
+          # For simplicity, we’ll just produce a single matrix entry with the folder set to $ROOT_FOLDER:
+          cat <<EOF > matrix.json
+          [
+            {
+              "name": "EchoBot",
+              "folder": "${{ env.ROOT_FOLDER }}"
+            }
+          ]
+          EOF
+          
+          echo "::set-output name=matrix::$(cat matrix.json)"
 
   build:
     needs: generate
     runs-on: ubuntu-latest
     strategy:
-      matrix: 
-        include: ${{ fromJSON(env.matrix) || fromJSON('[]') }}
+      matrix:
+        include: ${{ fromJSON(needs.generate.outputs.matrix) }}
       fail-fast: false
+    name: "Build - ${{ matrix.name }}"
 
-    name: bot - ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v3
 
@@ -74,12 +83,25 @@ jobs:
         run: |
           if [ -f package.json ] && jq -e .scripts.build package.json > /dev/null; then
             npm run build
+          else
+            echo "No build script found, skipping build."
           fi
         working-directory: ${{ matrix.folder }}
 
-      - name: Lint project
+      - name: Lint project (if applicable)
         run: |
           if [ -f package.json ] && jq -e .scripts.lint package.json > /dev/null; then
             npm run lint
+          else
+            echo "No lint script found, skipping lint."
+          fi
+        working-directory: ${{ matrix.folder }}
+
+      - name: Test project (if applicable)
+        run: |
+          if [ -f package.json ] && jq -e .scripts.test package.json > /dev/null; then
+            npm test
+          else
+            echo "No test script found, skipping tests."
           fi
         working-directory: ${{ matrix.folder }}
