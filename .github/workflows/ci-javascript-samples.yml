@@ -83,16 +83,21 @@ jobs:
         with:
           node-version: 18.x
 
-      - name: yarn install
-        run: yarn install
+      - name: Install dependencies
+        run: npm install
         working-directory: ${{ matrix.folder }}
 
-      - name: yarn build
+      - name: Build project
         if: ${{ contains(matrix.scripts, 'build') }}
-        run: yarn build
+        run: npm run build
         working-directory: ${{ matrix.folder }}
 
-      - name: yarn lint
+      - name: Run linter
         run: |
-          yarn eslint ${{ join(matrix.files, ' ') }}
+          npx eslint ${{ join(matrix.files, ' ') }}
+        working-directory: ${{ matrix.folder }}
+
+      - name: Run tests (if available)
+        if: ${{ contains(matrix.scripts, 'test') }}
+        run: npm test
         working-directory: ${{ matrix.folder }}
