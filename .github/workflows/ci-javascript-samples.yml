@@ -1,107 +1,33 @@
 name: ci-javascript-samples
 
-env:
-  ROOT_FOLDER: BotBuilder-Samples/samples/javascript_nodejs/02.echo-bot
-
 on:
   workflow_dispatch:
   pull_request:
     branches:
       - main
-    paths:
-      - "samples/**/*.js"
-      - "samples/**/*.ts"
 
 jobs:
-  generate:
-    name: detect and generate bot matrix
+  build-echo-bot:
     runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: git diff
-        uses: technote-space/get-diff-action@v4
-        with:
-          PATTERNS: samples/**/*.+(ts|js)
-          ABSOLUTE: true
-
-      - name: generate matrix
-        id: set-matrix
-        run: |
-          # If your GIT_DIFF_FILTERED is empty, produce an empty matrix '[]'
-          if [ -z "${{ env.GIT_DIFF_FILTERED }}" ]; then
-            echo "::set-output name=matrix::[]"
-            exit 0
-          fi
-          
-          # Otherwise, do something more advanced to produce a real matrix.
-          # For simplicity, we’ll just produce a single matrix entry with the folder set to $ROOT_FOLDER:
-          cat <<EOF > matrix.json
-          [
-            {
-              "name": "EchoBot",
-              "folder": "${{ env.ROOT_FOLDER }}"
-            }
-          ]
-          EOF
-          
-          echo "::set-output name=matrix::$(cat matrix.json)"
-
-  build:
-    needs: generate
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include: ${{ fromJSON(needs.generate.outputs.matrix) }}
-      fail-fast: false
-    name: "Build - ${{ matrix.name }}"
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: use node 18.x
+      - name: Use Node.js 18.x
         uses: actions/setup-node@v3
         with:
           node-version: 18.x
 
-      - name: Check if package.json exists
-        run: |
-          if [ ! -f package.json ]; then
-            echo "Error: package.json not found!"
-            exit 1
-          fi
-        working-directory: ${{ matrix.folder }}
-
       - name: Install dependencies
         run: npm install
-        working-directory: ${{ matrix.folder }}
+        working-directory: BotBuilder-Samples/samples/javascript_nodejs/02.echo-bot
 
-      - name: Build project (if applicable)
-        run: |
-          if [ -f package.json ] && jq -e .scripts.build package.json > /dev/null; then
-            npm run build
-          else
-            echo "No build script found, skipping build."
-          fi
-        working-directory: ${{ matrix.folder }}
+      - name: Build project
+        # Only run this if you have a "build" script in package.json
+        run: npm run build
+        working-directory: BotBuilder-Samples/samples/javascript_nodejs/02.echo-bot
 
-      - name: Lint project (if applicable)
-        run: |
-          if [ -f package.json ] && jq -e .scripts.lint package.json > /dev/null; then
-            npm run lint
-          else
-            echo "No lint script found, skipping lint."
-          fi
-        working-directory: ${{ matrix.folder }}
-
-      - name: Test project (if applicable)
-        run: |
-          if [ -f package.json ] && jq -e .scripts.test package.json > /dev/null; then
-            npm test
-          else
-            echo "No test script found, skipping tests."
-          fi
-        working-directory: ${{ matrix.folder }}
+      - name: Run tests
+        # Only run this if you have a "test" script in package.json
+        run: npm test
+        working-directory: BotBuilder-Samples/samples/javascript_nodejs/02.echo-bot
