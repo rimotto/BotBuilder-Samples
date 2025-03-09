@@ -31,7 +31,7 @@ jobs:
 
       - name: Build project (if applicable)
         run: npm run build
-        if: "[ -f package.json ] && jq -e .scripts.build package.json > /dev/null"
+        if: test -f package.json && jq -e .scripts.build package.json > /dev/null
         working-directory: ${{ env.ROOT_FOLDER }}
 
       - name: Run ESLint
@@ -40,5 +40,5 @@ jobs:
 
       - name: Run tests (if applicable)
         run: npm test
-        if: "[ -f package.json ] && jq -e .scripts.test package.json > /dev/null"
+        if: test -f package.json && jq -e .scripts.test package.json > /dev/null
         working-directory: ${{ env.ROOT_FOLDER }}
