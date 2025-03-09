@@ -30,48 +30,23 @@ jobs:
 
       - name: generate matrix
         id: set-matrix
-        shell: pwsh
-        if: env.GIT_DIFF
         run: |
-          function UpSearchFolder {
-            param ([String] $path, [String] $file)
-
-            while ($path -and !(Test-Path (Join-Path $path $file))) {
-              $path = Split-Path $path -Parent
-            }
-
-            return $path
-          }
-
-          $paths = @("${{ env.GIT_DIFF_FILTERED }}" -replace "'", "" -split " ")
-          $rootFolder = "${{ env.ROOT_FOLDER }}"
-          $pkg = "package.json"
-
-          $result = $paths | ForEach-Object { UpSearchFolder -path $_ -file $pkg } | Get-Unique | ForEach-Object {
-            $folder = $_
-            $json = Get-Content -Raw -Path (Join-Path $folder $pkg) | ConvertFrom-Json
-            $files = @($paths | Where-Object { $_.StartsWith($folder) })
-            return @{ 
-              name = $folder.Substring($folder.IndexOf($rootFolder) + $rootFolder.Length);
-              scripts = @($json.scripts | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name);
-              folder = $folder;
-              files = $files
-            } 
-          }
-
-          "Generated matrix:"
-          ConvertTo-Json @($result)
-
-          $matrix = ConvertTo-Json -Compress @($result)
-
-          echo "::set-output name=matrix::$($matrix)"
+          MATRIX_JSON="[]"
+          
+          # Check if there are any differences
+          if [[ -n "${{ env.GIT_DIFF_FILTERED }}" ]]; then
+            MATRIX_JSON=$(echo "${{ env.GIT_DIFF_FILTERED }}" | jq -R -s 'split("\n") | map(select(length > 0)) | map({ name: ., folder: . })')
+          fi
+          
+          echo "Generated Matrix: $MATRIX_JSON"
+          echo "matrix=$MATRIX_JSON" >> $GITHUB_ENV
 
   build:
     needs: generate
     runs-on: ubuntu-latest
     strategy:
       matrix: 
-        include: ${{fromJSON(needs.generate.outputs.matrix)}}
+        include: ${{ fromJSON(env.matrix) || fromJSON('[]') }}
       fail-fast: false
 
     name: bot - ${{ matrix.name }}
@@ -89,6 +64,7 @@ jobs:
             echo "Error: package.json not found!"
             exit 1
           fi
+        working-directory: ${{ matrix.folder }}
 
       - name: Install dependencies
         run: npm install
